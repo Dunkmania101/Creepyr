@@ -3,6 +3,7 @@
 import minecraft_launcher_lib
 import subprocess
 import sys
+import os
 import socket
 import requests
 from logging import getLogger
@@ -85,7 +86,7 @@ class Account():
 class Instance():
     current_install_max: int = 0
 
-    def __init__(self, name: str = "minecraft", mcdir: str = minecraft_launcher_lib.utils.get_minecraft_directory(), mcversion: str =  "", mctype: str = "vanilla", mlversion: str = "", jvmexec: str = "", jvmargs: list[str] = [], verify_mcversion: bool = True, verify_mlversion: bool = True, verify_launch_version: bool = True, manifest_path: Union[str, None] = None) -> None:
+    def __init__(self, name: str = "minecraft", mcdir: str = minecraft_launcher_lib.utils.get_minecraft_directory(), mcversion: str =  "", mctype: str = "vanilla", mlversion: str = "", jvmexec: str = "", jvmargs: list[str] = [], verify_mcversion: bool = True, verify_mlversion: bool = True, verify_launch_version: bool = True, cf_manifest_path: Union[str, None] = None) -> None:
         self.verify_mcversion: bool = verify_mcversion
         self.verify_mlversion: bool = verify_mlversion
         self.verify_launch_version: bool = verify_launch_version
@@ -155,7 +156,7 @@ class Instance():
             self.mlversion: str = mlversion
         self.jvmexec: str = jvmexec
         self.jvmargs: list[str] = jvmargs
-        self.manifest_path = manifest_path
+        self.cf_manifest_path = cf_manifest_path
 
     def get_mcdir_path(self):
         return expand_full_path(self.mcdir)
@@ -200,34 +201,46 @@ class Instance():
             "setMax": self.set_install_max,
         }
 
+    def install_mod_cf(self, api_key: str) -> bool:
+        return True
+
     def install_mods_cf(self, api_key: str) -> bool:
-        if self.manifest_path is not None:
-            jfilepath = expand_full_path(self.manifest_path)
-            with open(jfilepath, "rb") as f:
-                manifest_data = jloads(f.read())
-                modslist = manifest_data.get("files", [])
-                for jmod in modslist:
-                    try:
-                        modurl = requests.get(f"https://api.curseforge.com/v1/mods/{jmod.get('projectID', '')}/files/{jmod.get('fileID', '')}/download-url", headers = {
-                            "Accept": "application/json",
-                            "x-api-key": api_key,}).json().get("data")
-                    except:
-                        modurl = None
-                    if modurl is not None:
-                        moddl = requests.get(modurl, stream=True)
-                        modfilename = modurl.split("/")[-1]
-                        msg = f"Saving {modfilename} from url: {modurl}..."
-                        logger.info(msg)
-                        print(msg)
-                        with open(expand_full_path(ospath.join(self.get_mcdir_path(), "mods", modfilename)), "wb") as modfile:
-                            total_length = int(moddl.headers.get("content-length"))
-                            chunk_size = 2391975
-                            for i, ch in enumerate(moddl.iter_content(chunk_size=chunk_size)):
-                                if ch:
-                                    msg = f"Saving chunk {i*chunk_size}/{total_length} to {modfilename}..."
-                                    logger.info(msg)
-                                    print(msg)
-                                    modfile.write(ch)
+        if self.cf_manifest_path is not None:
+            jfilepath = expand_full_path(self.cf_manifest_path)
+            if ospath.isfile(jfilepath):
+                with open(jfilepath, "rb") as f:
+                    manifest_data = jloads(f.read())
+                    modslist = manifest_data.get("files", [])
+                    for mi, jmod in enumerate(modslist):
+                        try:
+                            modurl = requests.get(f"https://api.curseforge.com/v1/mods/{jmod.get('projectID', '')}/files/{jmod.get('fileID', '')}/download-url", headers = {
+                                "Accept": "application/json",
+                                "x-api-key": api_key,}).json().get("data")
+                        except Exception as e:
+                            logger.warning(f"Encountered exception while finding mod: {jmod}: ", e)
+                            modurl = None
+                        if modurl is not None:
+                            moddl = requests.get(modurl, stream=True)
+                            modfilename = modurl.split("/")[-1]
+                            modfilepath = expand_full_path(ospath.join(self.get_mcdir_path(), "mods", modfilename))
+                            if ospath.isfile(modfilepath):
+                                msg = f"[ {mi}/{len(modslist)} ]: File {modfilepath} already exists, skipping..."
+                                logger.info(msg)
+                                print(msg)
+                            else:
+                                msg = f"[ {mi}/{len(modslist)} ]: Saving {modfilename} from url: {modurl} to: {modfilepath}..."
+                                logger.info(msg)
+                                print(msg)
+                                os.makedirs(expand_full_path(ospath.join(self.get_mcdir_path(), "mods")), exist_ok=True)
+                                with open(modfilepath, "wb") as modfile:
+                                    total_length = int(moddl.headers.get("content-length"))
+                                    chunk_size = 2391975
+                                    for chi, ch in enumerate(moddl.iter_content(chunk_size=chunk_size)):
+                                        if ch:
+                                            msg = f"Saving chunk {chi*chunk_size}/{total_length} to {modfilename} at: {modfilepath}..."
+                                            logger.info(msg)
+                                            print(msg)
+                                            modfile.write(ch)
         return True
 
     def install_mods(self) -> bool:
@@ -294,12 +307,12 @@ class Instance():
                 "verify_mcversion": self.verify_mcversion,
                 "verify_mlversion": self.verify_mlversion,
                 "verify_launch_version": self.verify_launch_version,
-                "manifest_path": self.manifest_path,
+                "cf_manifest_path": self.cf_manifest_path,
                 }
 
     @staticmethod
     def from_dict(data: dict):
-        return Instance(data.get("name", ""), data.get("mcdir", ""), data.get("mcversion", ""), data.get("mctype", ""), data.get("mlversion", ""), data.get("jvmexec", ""), data.get("jvmargs", ""), data.get("verify_mcversion", True), data.get("verify_mlversion", True), data.get("verify_launch_version", True), data.get("manifest_path", None))
+        return Instance(data.get("name", ""), data.get("mcdir", ""), data.get("mcversion", ""), data.get("mctype", ""), data.get("mlversion", ""), data.get("jvmexec", ""), data.get("jvmargs", ""), data.get("verify_mcversion", True), data.get("verify_mlversion", True), data.get("verify_launch_version", True), data.get("cf_manifest_path", None))
 
     def __str__(self) -> str:
         return str(self.to_dict())
@@ -338,6 +351,10 @@ def main(args: list[str]) -> int:
                     logger.error(f"Could not save instance to file {jfilepath}: ", e)
             elif args[2] == "install":
                 return 0 if instance.install() else 1
+            elif args[2] == "install-mc":
+                return 0 if instance.install_mc() else 1
+            elif args[2] == "install-mods":
+                return 0 if instance.install_mods() else 1
             elif args[2] == "run":
                 runargs = instanceargs[0:]
                 msg = "Running instance: " + str(instance)
