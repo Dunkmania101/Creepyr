@@ -2,7 +2,7 @@
 #+AUTHOR: Dunkmania101
 
 
-* Creepyr: A cli Minecraft launcher/server-launcher/pack-dev-tool written in Python by Dunkmania101
+* Creepyr: A CLI Minecraft launcher/server-launcher/pack-dev-tool written in Python by Dunkmania101
 ** Installation
 *** Git Clone
     #+NAME: Installation Commands: Git Clone
