@@ -1,4 +1,4 @@
-# Creepyr: A cli Minecraft launcher/server-launcher/pack-dev-tool written in Python by Dunkmania101
+# Creepyr: A CLI Minecraft launcher/server-launcher/pack-dev-tool written in Python by Dunkmania101
 
 import minecraft_launcher_lib
 import subprocess
@@ -8,8 +8,8 @@ import socket
 import requests
 from logging import getLogger
 from typing import Union
-from os import path as ospath
 from json import dumps as jdumps, loads as jloads
+from threading import Thread
 from uuid import uuid1 as randuuid
 
 
@@ -20,7 +20,7 @@ cf_api_key: str = ""
 
 
 def expand_full_path(pathstr: str) -> str:
-    return ospath.expanduser(ospath.expandvars(pathstr))
+    return os.path.expanduser(os.path.expandvars(pathstr))
 
 def has_network_access() -> bool:
     return not socket.gethostbyname(socket.gethostname()).startswith(("127.", "172."))
@@ -86,7 +86,7 @@ class Account():
 class Instance():
     current_install_max: int = 0
 
-    def __init__(self, name: str = "minecraft", mcdir: str = minecraft_launcher_lib.utils.get_minecraft_directory(), mcversion: str =  "", mctype: str = "vanilla", mlversion: str = "", jvmexec: str = "", jvmargs: list[str] = [], verify_mcversion: bool = True, verify_mlversion: bool = True, verify_launch_version: bool = True, cf_manifest_path: Union[str, None] = None) -> None:
+    def __init__(self, name: str = "minecraft", mcdir: str = minecraft_launcher_lib.utils.get_minecraft_directory(), mcversion: str =  "", mctype: str = "vanilla", mlversion: str = "", jvmexec: str = "", jvmargs: list[str] = [], verify_mcversion: bool = True, verify_mlversion: bool = True, verify_launch_version: bool = True, cf_manifest_path: Union[str, None] = None, mr_manifest_path: Union[str, None] = None, creepyr_manifest_path: Union[str, None] = None) -> None:
         self.verify_mcversion: bool = verify_mcversion
         self.verify_mlversion: bool = verify_mlversion
         self.verify_launch_version: bool = verify_launch_version
@@ -127,9 +127,12 @@ class Instance():
                         logger.warning(f"Could not find a valid Forge version for Minecraft version: {mcversion}    ; Setting it to the string \"Invalid\"")
                 else:
                     logger.warning(f"Could not connect to the internet while trying to get latest Forge version: {mlversion}    ; Setting it to the string \"Invalid\"")
-            elif mctype == "fabric" and minecraft_launcher_lib.fabric.is_minecraft_version_supported(mcversion):
+            elif mctype == "fabric":
                 if has_network_access():
-                    mlversion = minecraft_launcher_lib.fabric.get_latest_loader_version()
+                    if minecraft_launcher_lib.fabric.is_minecraft_version_supported(mcversion):
+                        mlversion = minecraft_launcher_lib.fabric.get_latest_loader_version()
+                    else:
+                        logger.warning(f"Could not find a valid Fabric version for Minecraft version: {mcversion}    ; Setting it to the string \"Invalid\"")
                 else:
                     logger.warning(f"Could not connect to the internet while trying to get latest Fabric version: {mlversion}    ; Setting it to the string \"Invalid\"")
         elif self.verify_mlversion:
@@ -156,7 +159,9 @@ class Instance():
             self.mlversion: str = mlversion
         self.jvmexec: str = jvmexec
         self.jvmargs: list[str] = jvmargs
-        self.cf_manifest_path = cf_manifest_path
+        self.cf_manifest_path: Union[str, None] = cf_manifest_path
+        self.mr_manifest_path: Union[str, None] = mr_manifest_path
+        self.creepyr_manifest_path: Union[str, None] = creepyr_manifest_path
 
     def get_mcdir_path(self):
         return expand_full_path(self.mcdir)
@@ -201,46 +206,80 @@ class Instance():
             "setMax": self.set_install_max,
         }
 
-    def install_mod_cf(self, api_key: str) -> bool:
+    def install_mod_mr(self, jmod: dict, ithread: Union[int, None] = None, imod: Union[int, None] = None, ithreads: Union[int, None] = None, imods: Union[int, None] = None, total_imods: Union[int, None] = None) -> bool:
         return True
 
-    def install_mods_cf(self, api_key: str) -> bool:
+    def install_mod_cf(self, jmod: dict, api_key: str, ithread: Union[int, None] = None, imod: Union[int, None] = None, ithreads: Union[int, None] = None, imods: Union[int, None] = None, total_imods: Union[int, None] = None) -> bool:
+        try:
+            modurl = requests.get(f"https://api.curseforge.com/v1/mods/{jmod.get('projectID', '')}/files/{jmod.get('fileID', '')}/download-url", headers = {
+                "Accept": "application/json",
+                "x-api-key": api_key,}, timeout=60).json().get("data")
+        except Exception as e:
+            logger.warning(f"Encountered exception while finding mod: {jmod}: ", e)
+            modurl = None
+        if modurl is not None:
+            try:
+                moddl = requests.get(modurl, stream=True, timeout=60*3)
+                modfilename = modurl.split("/")[-1]
+                modfilepath = expand_full_path(os.path.join(self.get_mcdir_path(), "mods", modfilename))
+                if ithread is not None and ithread is not None:
+                    iprefix = f"[ Thread {ithread}/{ithreads} ]: "
+                else:
+                    iprefix = ""
+                if imod is not None and imods is not None:
+                    iprefix += f"[ Mod {imod}/{imods}{', In Total '+ str(total_imods) if total_imods is not None else ''} ]: "
+                if os.path.isfile(modfilepath):
+                    msg = f"{iprefix}File {modfilepath} already exists, skipping..."
+                    logger.info(msg)
+                    print(msg)
+                else:
+                    msg = f"{iprefix}Saving {modfilename} from url: {modurl} to: {modfilepath}..."
+                    logger.info(msg)
+                    print(msg)
+                    os.makedirs(expand_full_path(os.path.join(self.get_mcdir_path(), "mods")), exist_ok=True)
+                    with open(modfilepath, "wb") as modfile:
+                        total_length = int(moddl.headers.get("content-length"))
+                        chunk_size = 2391975
+                        for chi, ch in enumerate(moddl.iter_content(chunk_size=chunk_size)):
+                            if ch:
+                                msg = f"Saving chunk {chi*chunk_size}/{total_length} to {modfilename} at: {modfilepath}..."
+                                logger.info(msg)
+                                print(msg)
+                                modfile.write(ch)
+            except Exception as e:
+                logger.warning(f"Encountered exception while downloading mod: {jmod}: ", e)
+        return True
+
+    def _sub_install_mods_cf(self, api_key: str, modslist: list, ithread: int, ithreads: int, total_imods: int) -> bool:
+        ret = True
+        for imod, jmod in enumerate(modslist):
+            if not self.install_mod_cf(jmod, api_key, ithread, imod+1, ithreads, len(modslist), total_imods):
+                ret = False
+        return ret
+
+    def install_mods_cf(self, api_key: str, threads: int = 10) -> bool:
         if self.cf_manifest_path is not None:
             jfilepath = expand_full_path(self.cf_manifest_path)
-            if ospath.isfile(jfilepath):
-                with open(jfilepath, "rb") as f:
+            if os.path.isfile(jfilepath):
+                with open(jfilepath, "r") as f:
                     manifest_data = jloads(f.read())
                     modslist = manifest_data.get("files", [])
-                    for mi, jmod in enumerate(modslist):
-                        try:
-                            modurl = requests.get(f"https://api.curseforge.com/v1/mods/{jmod.get('projectID', '')}/files/{jmod.get('fileID', '')}/download-url", headers = {
-                                "Accept": "application/json",
-                                "x-api-key": api_key,}).json().get("data")
-                        except Exception as e:
-                            logger.warning(f"Encountered exception while finding mod: {jmod}: ", e)
-                            modurl = None
-                        if modurl is not None:
-                            moddl = requests.get(modurl, stream=True)
-                            modfilename = modurl.split("/")[-1]
-                            modfilepath = expand_full_path(ospath.join(self.get_mcdir_path(), "mods", modfilename))
-                            if ospath.isfile(modfilepath):
-                                msg = f"[ {mi}/{len(modslist)} ]: File {modfilepath} already exists, skipping..."
-                                logger.info(msg)
-                                print(msg)
-                            else:
-                                msg = f"[ {mi}/{len(modslist)} ]: Saving {modfilename} from url: {modurl} to: {modfilepath}..."
-                                logger.info(msg)
-                                print(msg)
-                                os.makedirs(expand_full_path(ospath.join(self.get_mcdir_path(), "mods")), exist_ok=True)
-                                with open(modfilepath, "wb") as modfile:
-                                    total_length = int(moddl.headers.get("content-length"))
-                                    chunk_size = 2391975
-                                    for chi, ch in enumerate(moddl.iter_content(chunk_size=chunk_size)):
-                                        if ch:
-                                            msg = f"Saving chunk {chi*chunk_size}/{total_length} to {modfilename} at: {modfilepath}..."
-                                            logger.info(msg)
-                                            print(msg)
-                                            modfile.write(ch)
+                    thread_size = max(int(len(modslist) / threads), 1)
+                    last_ithread = 0
+                    for ithread in range(1, threads+1):
+                        next_ithread = last_ithread+thread_size
+                        Thread(target=self._sub_install_mods_cf, args=[api_key, modslist[last_ithread:(None if ithread >= threads else next_ithread)], ithread, threads, len(modslist)]).start()
+                        if next_ithread >= len(modslist):
+                            break
+                        last_ithread = next_ithread
+        return True
+
+    def install_mods_mr(self, threads: int = 10) -> bool: # TODO
+        #if self.mr_manifest_path is not None:
+        #    jfilepath = expand_full_path(self.mr_manifest_path)
+        #    if os.path.isfile(jfilepath):
+        #        with open(jfilepath, "r") as f:
+        #            manifest_data = jloads(f.read())
         return True
 
     def install_mods(self) -> bool:
@@ -249,11 +288,49 @@ class Instance():
     def install(self) -> bool:
         return self.install_mc() and self.install_mods()
 
-    def update_mc(self) -> bool:
+    def update_mc(self, save: bool = True, jfilepath: Union[str, None] = None) -> bool:
+        if has_network_access():
+            latest_mcversion = minecraft_launcher_lib.utils.get_latest_version()["release"]
+            if self.mcversion != latest_mcversion:
+                self.mcversion = latest_mcversion
+                if save:
+                    return self.save_to_file(jfilepath)
+                return True
+            else:
+                logger.warning(f"{self.mcversion} is already up to date!")
         return False
 
-    def update(self) -> bool:
+    def update_ml(self, save: bool = True, jfilepath: Union[str, None] = None) -> bool:
+        if has_network_access():
+            if self.mctype == "forge":
+                fgversion = minecraft_launcher_lib.forge.find_forge_version(self.mcversion)
+                if fgversion is not None:
+                    latest_mlversion = fgversion
+                else:
+                    logger.warning(f"Could not find a valid Forge version for Minecraft version: {self.mcversion}    ; Setting it to the string \"Invalid\"")
+                    return False
+            elif self.mctype == "fabric":
+                if minecraft_launcher_lib.fabric.is_minecraft_version_supported(self.mcversion):
+                    latest_mlversion = minecraft_launcher_lib.fabric.get_latest_loader_version()
+                else:
+                    logger.warning(f"Could not find a valid Fabric version for Minecraft version: {self.mcversion}    ; Setting it to the string \"Invalid\"")
+                    return False
+            else:
+                return False
+            if self.mlversion != latest_mlversion:
+                self.mlversion = latest_mlversion
+                if save:
+                    return self.save_to_file(jfilepath)
+                return True
+            else:
+                logger.warning(f"{self.mlversion} is already up to date!")
         return False
+
+    def update(self, save: bool = True, jfilepath: Union[str, None] = None) -> bool:
+        if self.mctype == "vanilla":
+            return self.update_mc(save, jfilepath)
+        else:
+            return self.update_ml(save, jfilepath)
 
     def get_launch_cmd(self, account: Account, jvmexec: str = "", jvmargs: list[str] = [], verify_launch_version: Union[bool, None] = None) -> Union[list[str], int]:
         if verify_launch_version is None:
@@ -308,11 +385,26 @@ class Instance():
                 "verify_mlversion": self.verify_mlversion,
                 "verify_launch_version": self.verify_launch_version,
                 "cf_manifest_path": self.cf_manifest_path,
+                "mr_manifest_path": self.mr_manifest_path,
+                "creepyr_manifest_path": self.creepyr_manifest_path,
                 }
 
     @staticmethod
     def from_dict(data: dict):
-        return Instance(data.get("name", ""), data.get("mcdir", ""), data.get("mcversion", ""), data.get("mctype", ""), data.get("mlversion", ""), data.get("jvmexec", ""), data.get("jvmargs", ""), data.get("verify_mcversion", True), data.get("verify_mlversion", True), data.get("verify_launch_version", True), data.get("cf_manifest_path", None))
+        return Instance(data.get("name", ""), data.get("mcdir", ""), data.get("mcversion", ""), data.get("mctype", ""), data.get("mlversion", ""), data.get("jvmexec", ""), data.get("jvmargs", ""), data.get("verify_mcversion", True), data.get("verify_mlversion", True), data.get("verify_launch_version", True), data.get("cf_manifest_path", None), data.get("mr_manifest_path", None), data.get("creepyr_manifest_path", None))
+
+    def save_to_file(self, jfilepath: Union[str, None] = None) -> bool:
+        if jfilepath is None:
+            jfilepath = self.creepyr_manifest_path
+        if jfilepath is not None:
+            try:
+                jfilepath = expand_full_path(jfilepath)
+                with open(jfilepath, "w+") as f:
+                    f.write(jdumps(self.to_dict(), indent=4))
+                    return True
+            except Exception as e:
+                logger.error(f"Could not save instance to file {jfilepath}: ", e)
+        return False
 
     def __str__(self) -> str:
         return str(self.to_dict())
@@ -333,9 +425,10 @@ def main(args: list[str]) -> int:
             instanceargs = instanceargs[8:]
         else:
             jfilepath = expand_full_path(instanceargs[0])
-            if ospath.isfile(jfilepath):
+            if os.path.isfile(jfilepath):
                 with open(jfilepath, "r") as f:
                     instance = Instance.from_dict(jloads(f.read()))
+                    instance.creepyr_manifest_path = jfilepath
                     instanceargs = instanceargs[1:]
         if instance is None:
             iscreate = instanceargs[0] == "create"
@@ -344,17 +437,30 @@ def main(args: list[str]) -> int:
         else:
             if args[2] == "create":
                 jfilepath = expand_full_path(instanceargs[0])
-                try:
-                    with open(jfilepath, "w+") as f:
-                        f.write(jdumps(instance.to_dict(), indent=4))
-                except Exception as e:
-                    logger.error(f"Could not save instance to file {jfilepath}: ", e)
+                return 0 if instance.save_to_file(jfilepath) else 1
             elif args[2] == "install":
                 return 0 if instance.install() else 1
             elif args[2] == "install-mc":
                 return 0 if instance.install_mc() else 1
             elif args[2] == "install-mods":
                 return 0 if instance.install_mods() else 1
+            elif args[2] == "install-mods-cf":
+                return 0 if instance.install_mods_cf(cf_api_key) else 1
+            elif args[2] == "install-mods-mr":
+                return 0 if instance.install_mods_mr() else 1
+            elif args[2] == "install-mod-cf":
+                return 0 if instance.install_mod_mr({}) else 1
+            elif args[2] == "install-mod-cf":
+                return 0 if instance.install_mod_cf({"projectID": instanceargs[0], "fileID": instanceargs[1]}, cf_api_key) else 1
+            elif args[2] == "update":
+                jfilepath = expand_full_path(args[3])
+                return 0 if instance.update(jfilepath=jfilepath) else 1
+            elif args[2] == "update-mc":
+                jfilepath = expand_full_path(args[3])
+                return 0 if instance.update_mc(jfilepath=jfilepath) else 1
+            elif args[2] == "update-ml":
+                jfilepath = expand_full_path(args[3])
+                return 0 if instance.update_ml(jfilepath=jfilepath) else 1
             elif args[2] == "run":
                 runargs = instanceargs[0:]
                 msg = "Running instance: " + str(instance)
@@ -365,7 +471,7 @@ def main(args: list[str]) -> int:
                     account = Account(runargs[1], runargs[2], runargs[3], runargs[4])
                 else:
                     jfilepath = expand_full_path(runargs[0])
-                    if ospath.isfile(jfilepath):
+                    if os.path.isfile(jfilepath):
                         with open(jfilepath, "r") as f:
                             account = Account.from_dict(jloads(f.read()))
                 if account is None:
@@ -400,7 +506,7 @@ def main(args: list[str]) -> int:
             accountargs = accountargs[5:]
         else:
             jfilepath = expand_full_path(accountargs[1])
-            if ospath.isfile(jfilepath):
+            if os.path.isfile(jfilepath):
                 with open(jfilepath, "r") as f:
                     account = Account.from_dict(jloads(f.read()))
         if account is None:

@@ -1,0 +1,138 @@
+#+TITLE: Creepyr README
+#+AUTHOR: Dunkmania101
+
+
+* Creepyr: A cli Minecraft launcher/server-launcher/pack-dev-tool written in Python by Dunkmania101
+** Installation
+*** Git Clone
+    #+NAME: Installation Commands: Git Clone
+    #+BEGIN_SRC sh
+    # Download Creepyr
+    git clone https://github.com/Dunkmania101/Creepyr --depth=1
+    # Install dependencies
+    pip3 install -Ur Creepyr/requirements.txt
+    # Install Creepyr
+    cp Creepyr/creepyr.py YOUR_PROGRAM_DIR/creepyr.py
+    # Make sure it works
+    python3 YOUR_PROGRAM_DIR/creepyr.py --help
+    #+END_SRC
+** Usage
+*** General
+**** Show Help
+    #+NAME: Usage: Show Help
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py help
+    #+END_SRC
+*** Accounts
+**** Add An Account
+***** Token
+    #+NAME: Usage: Add An Account: Token
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py account create LOCAL_ACCOUNT_NAME USERNAME UUID TOKEN ACCOUNT_JSON_FILE
+    #+END_SRC
+***** TODO Mojang
+    #+NAME: Usage: Add An Account: Mojang
+    #+BEGIN_SRC sh
+    echo TODO
+    #+END_SRC
+***** TODO Microsoft
+    #+NAME: Usage: Add An Account: Microsoft
+    #+BEGIN_SRC sh
+    echo TODO
+    #+END_SRC
+*** Instance Creation
+    #+NAME: Usage: Instance Creation
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance create INSTANCE_JSON_FILE LOCAL_INSTANCE_NAME MINECRAFT_DIR MINECRAFT_VERSION \
+        MINECRAFT_TYPE \ # One of: vanilla, forge, fabric
+    MOD_LOADER_VERSION \ # "" if using vanilla
+    JVM_EXEC \ # Likely /usr/lib/jvm/default/bin/java on Unix-like systems
+    JVM_ARGS # Needs to be in quotes as one long, space-delimited string
+    #+END_SRC
+*** Instance Installation
+    #+NAME: Usage: Instance Installation
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install INSTANCE_JSON_FILE
+    # OR, if using CurseForge mods:
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install INSTANCE_JSON_FILE cfapikey=CURSEFORGE_API_KEY
+    #+END_SRC
+**** Only Minecraft
+    #+NAME: Usage: Instance Installation: Only Minecraft
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install-mc INSTANCE_JSON_FILE
+    #+END_SRC
+**** Only Mods
+    #+NAME: Usage: Instance Installation: Only Mods
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install-mods INSTANCE_JSON_FILE
+    # OR, if using CurseForge mods:
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install-mods INSTANCE_JSON_FILE cfapikey=CURSEFORGE_API_KEY
+    #+END_SRC
+**** Only CurseForge Mods
+    #+NAME: Usage: Instance Installation: Only CurseForge Mods
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install-mods-cf INSTANCE_JSON_FILE cfapikey=CURSEFORGE_API_KEY
+    #+END_SRC
+**** Only Modrinth Mods
+    #+NAME: Usage: Instance Installation: Only Modrinth Mods
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install-mods-mr INSTANCE_JSON_FILE
+    #+END_SRC
+*** Instance Updating
+    #+NAME: Usage: Instance Updating
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance update INSTANCE_JSON_FILE
+    # OR, if using CurseForge mods:
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance update INSTANCE_JSON_FILE cfapikey=CURSEFORGE_API_KEY
+    #+END_SRC
+**** Only Minecraft
+    #+NAME: Usage: Instance Updating: Only Minecraft
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance update-mc INSTANCE_JSON_FILE
+    #+END_SRC
+**** Only Mod Loader
+    #+NAME: Usage: Instance Updating: Only Mod Loader
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance update-ml INSTANCE_JSON_FILE
+    #+END_SRC
+*** Instance Launching
+    #+NAME: Usage: Instance Launching
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance run INSTANCE_JSON_FILE ACCOUNT_JSON_FILE
+    #+END_SRC
+**** Passing Account With STDIN
+    #+NAME: Usage: Instance Launching
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance run INSTANCE_JSON_FILE stdin LOCAL_ACCOUNT_NAME USERNAME UUID TOKEN
+    #+END_SRC
+**** Passing Instance With STDIN
+    #+NAME: Usage: Instance Launching
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance run stdin LOCAL_NAME MINECRAFT_DIR MINECRAFT_VERSION \
+    MINECRAFT_TYPE \ # One of: vanilla, forge, fabric
+    MOD_LOADER_VERSION \ # "" if using vanilla
+    JVM_EXEC \ # Likely /usr/lib/jvm/default/bin/java on Unix-like systems
+    JVM_ARGS \ # Needs to be in quotes as one long, space-delimited string
+    ACCOUNT_JSON_FILE
+    #+END_SRC
+**** Passing Everything With STDIN
+    #+NAME: Usage: Instance Launching
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance run stdin LOCAL_NAME MINECRAFT_DIR MINECRAFT_VERSION \
+    MINECRAFT_TYPE \ # One of: vanilla, forge, fabric
+    MOD_LOADER_VERSION \ # "" if using vanilla
+    JVM_EXEC \ # Likely /usr/lib/jvm/default/bin/java on Unix-like systems
+    JVM_ARGS \ # Needs to be in quotes as one long, space-delimited string
+    stdin LOCAL_ACCOUNT_NAME USERNAME UUID TOKEN
+    #+END_SRC
+*** Mod Installation
+**** CurseForge Mods
+    #+NAME: Usage: Mod Installation: CurseForge Mods
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install-mod-cf INSTANCE_JSON_FILE PROJECT_ID FILE_ID cfapikey=CURSEFORGE_API_KEY
+    #+END_SRC
+**** Modrinth Mods
+    #+NAME: Usage: Mod Installation: Modrinth Mods
+    #+BEGIN_SRC sh
+    python3 YOUR_PROGRAM_DIR/creepyr.py instance install-mod-mr INSTANCE_JSON_FILE PROJECT_ID FILE_ID
+    #+END_SRC
