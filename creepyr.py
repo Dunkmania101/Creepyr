@@ -503,7 +503,7 @@ def main(args: list[str]) -> int:
                 return 0 if instance.install_mods_cf(cf_api_key) else 1
             elif args[2] == "install-mods-mr":
                 return 0 if instance.install_mods_mr() else 1
-            elif args[2] == "install-mod-cf":
+            elif args[2] == "install-mod-mr":
                 return 0 if instance.install_mod_mr({}) else 1
             elif args[2] == "install-mod-cf":
                 return 0 if instance.install_mod_cf({"projectID": instanceargs[0], "fileID": instanceargs[1]}, cf_api_key) else 1
