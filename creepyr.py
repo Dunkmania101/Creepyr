@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Creepyr: A CLI Minecraft launcher/server-launcher/pack-dev-tool written in Python by Dunkmania101
 
 
