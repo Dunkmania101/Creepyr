@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+# GCreepyr: A GUI frontend to Creepyr, A CLI Minecraft launcher/server-launcher/pack-dev-tool written in Python by Dunkmania101
+
+
+# License:
+"""
 MIT License
 
 Copyright (c) 2024 Duncan Brasher (Dunkmania101)
@@ -19,3 +25,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+"""
+
+
+
+import creepyr
+

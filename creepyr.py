@@ -6,7 +6,7 @@
 """
 MIT License
 
-Copyright (c) 2022 Duncan Brasher (Dunkmania101)
+Copyright (c) 2024 Duncan Brasher (Dunkmania101)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
